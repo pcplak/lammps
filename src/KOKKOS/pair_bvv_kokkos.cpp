@@ -47,6 +47,7 @@ PairBVVKokkos<DeviceType>::PairBVVKokkos(LAMMPS *lmp) : PairBVV(lmp)
   execution_space = ExecutionSpaceFromDevice<DeviceType>::space;
   datamask_read = X_MASK | F_MASK | TYPE_MASK | ENERGY_MASK | VIRIAL_MASK;
   datamask_modify = F_MASK | ENERGY_MASK | VIRIAL_MASK;
+  datom = 3;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -395,28 +396,32 @@ double PairBVVKokkos<DeviceType>::init_one(int i, int j)
 
 template<class DeviceType>
 int PairBVVKokkos<DeviceType>::pack_forward_comm_kokkos(int n, DAT::tdual_int_1d k_sendlist,
-                                                        DAT::tdual_f_array &buf,
+                                                        DAT::tdual_xfloat_1d &buf,
                                                         int /*pbc_flag*/, int * /*pbc*/)
 {
   d_sendlist = k_sendlist.view<DeviceType>();
   v_buf = buf.view<DeviceType>();
+  int buffer_size = n * datom;
+  if (buf.extent(0) < buffer_size){
+      buf.resize(buffer_size);
+  }
   Kokkos::parallel_for(Kokkos::RangePolicy<DeviceType, TagPairBVVPackForwardComm>(0,n),*this);
-  return n*3;
+  return buffer_size;
 }
 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairBVVKokkos<DeviceType>::operator()(TagPairBVVPackForwardComm, const int &i) const {
   int j = d_sendlist(i);
-  v_buf(i,0) = d_Di(j,0);
-  v_buf(i,1) = d_Di(j,1);
-  v_buf(i,2) = d_Di(j,2);
+  v_buf[i*3+0] = d_Di(j,0);
+  v_buf[i*3+1] = d_Di(j,1);
+  v_buf[i*3+2] = d_Di(j,2);
 }
 
 /* ---------------------------------------------------------------------- */
 
 template<class DeviceType>
-void PairBVVKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_f_array &buf)
+void PairBVVKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, DAT::tdual_xfloat_1d &buf)
 {
   first = first_in;
   v_buf = buf.view<DeviceType>();
@@ -426,9 +431,9 @@ void PairBVVKokkos<DeviceType>::unpack_forward_comm_kokkos(int n, int first_in, 
 template<class DeviceType>
 KOKKOS_INLINE_FUNCTION
 void PairBVVKokkos<DeviceType>::operator()(TagPairBVVUnpackForwardComm, const int &i) const {
-  d_Di(i + first,0) = v_buf(i,0);
-  d_Di(i + first,1) = v_buf(i,1);
-  d_Di(i + first,2) = v_buf(i,2);
+  d_Di(i + first,0) = v_buf[i*3+0];
+  d_Di(i + first,1) = v_buf[i*3+1];
+  d_Di(i + first,2) = v_buf[i*3+2];
 }
 
 /* ---------------------------------------------------------------------- */
