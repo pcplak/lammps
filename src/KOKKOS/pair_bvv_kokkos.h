@@ -48,6 +48,8 @@ struct TagPairBVVKernelC{};
 
 template<class DeviceType>
 class PairBVVKokkos : public PairBVV, public KokkosBase {
+ private:
+  int datom;
  public:
   enum {EnabledNeighFlags=FULL|HALFTHREAD|HALF};
   enum {COUL_FLAG=0};
@@ -107,9 +109,9 @@ class PairBVVKokkos : public PairBVV, public KokkosBase {
       const F_FLOAT &epair, const F_FLOAT &fx, const F_FLOAT &fy, const F_FLOAT &fz, const F_FLOAT &delx,
                   const F_FLOAT &dely, const F_FLOAT &delz) const;
 
-  int pack_forward_comm_kokkos(int, DAT::tdual_int_1d, DAT::tdual_f_array&,
-                       int, int *);
-  void unpack_forward_comm_kokkos(int, int, DAT::tdual_f_array&) ;
+  int pack_forward_comm_kokkos(int, DAT::tdual_int_1d, DAT::tdual_xfloat_1d&,
+                       int, int *) override;
+  void unpack_forward_comm_kokkos(int, int, DAT::tdual_xfloat_1d&) override;
   
   int pack_forward_comm(int, int *, double *, int, int *) override;
   void unpack_forward_comm(int, int, double *) override;
@@ -183,7 +185,7 @@ class PairBVVKokkos : public PairBVV, public KokkosBase {
 
   int first;
   typename AT::t_int_1d d_sendlist;
-  typename AT::t_f_array_um v_buf;
+  typename AT::t_xfloat_1d_um v_buf;
 
   int neighflag,newton_pair;
   int nlocal,nall,eflag,vflag;
